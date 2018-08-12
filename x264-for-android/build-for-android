@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Set your own NDK here
+NDK=$ANDROID_NDK
+
+ARM_PLATFORM=$NDK/platforms/android-14/arch-arm/
+ARM_PREBUILT=$NDK/toolchains/arm-linux-androideabi-4.8/prebuilt/darwin-x86_64
+
+ARM64_PLATFORM=$NDK/platforms/android-21/arch-arm64/
+ARM64_PREBUILT=$NDK/toolchains/aarch64-linux-android-4.9/prebuilt/darwin-x86_64
+
+X86_PLATFORM=$NDK/platforms/android-19/arch-x86
+X86_PREBUILT=$NDK/toolchains/x86-4.9/prebuilt/darwin-x86_64
+
+BUILD_DIR=`pwd`/android
+
+function build_one
+{
+  echo "************** build verion $CPU **************";
+  pushd ./
+  ./configure  --prefix=$BUILD_DIR/$CPU \
+    --enable-pic \
+    --enable-static \
+    --enable-strip \
+    $DISABLE_ASM \
+    --disable-cli \
+    --host=$HOST \
+    --cross-prefix=$CROSS_PREFIX \
+    --sysroot=$SYSROOT \
+    --extra-cflags="$EXTRA_CFLAGS" \
+    --extra-ldflags="$EXTRA_LDFLAGS"
+ 
+  make clean
+  make -j4
+  mkdir -p $BUILD_DIR/$CPU
+  cp libx264.a $BUILD_DIR/$CPU/
+  popd
+}
+
+#armeabi
+CPU=armeabi
+HOST=arm-linux
+SYSROOT=$ARM_PLATFORM
+PREBUILT=$ARM_PREBUILT
+CROSS_PREFIX=$PREBUILT/bin/arm-linux-androideabi-
+CFLAGS="-O3 -Wall -fpic -mthumb \
+        -finline-limit=300 -ffast-math \
+        -Wno-psabi -Wa,--noexecstack -fomit-frame-pointer -fno-strict-aliasing \
+        -DANDROID -DNDEBUG"
+EXTRA_CFLAGS="-march=armv5te -mtune=xscale -msoft-float"
+EXTRA_LDFLAGS=""
+DISABLE_ASM="--disable-asm"
+build_one
+
+#armeabi-v7a
+CPU=armeabi-v7a
+HOST=arm-linux
+SYSROOT=$ARM_PLATFORM
+PREBUILT=$ARM_PREBUILT
+CROSS_PREFIX=$PREBUILT/bin/arm-linux-androideabi-
+CFLAGS="-O3 -Wall -fpic -mthumb \
+       -finline-limit=300 -ffast-math \
+       -Wno-psabi -Wa,--noexecstack -fomit-frame-pointer -fno-strict-aliasing \
+       -DANDROID -DNDEBUG"
+EXTRA_CFLAGS="-march=armv7-a -mfloat-abi=softfp -mfpu=neon -D__ARM_ARCH_7__ -D__ARM_ARCH_7A__"
+EXTRA_LDFLAGS="-nostdlib"
+DISABLE_ASM=""
+build_one
+
+#arm64-v8a
+CPU=arm64-v8a
+HOST=aarch64-linux
+SYSROOT=$ARM64_PLATFORM
+PREBUILT=$ARM64_PREBUILT
+CROSS_PREFIX=$PREBUILT/bin/aarch64-linux-android-
+EXTRA_CFLAGS="-march=armv8-a -D__ANDROID__"
+EXTRA_LDFLAGS="-nostdlib"
+DISABLE_ASM=""
+build_one
+
+#x86
+CPU=x86
+HOST=i686-linux
+SYSROOT=$X86_PLATFORM
+PREBUILT=$X86_PREBUILT
+CROSS_PREFIX=$PREBUILT/bin/i686-linux-android-
+EXTRA_CFLAGS="-D__ANDROID__ -D__i686__"
+EXTRA_LDFLAGS="-nostdlib"
+DISABLE_ASM="--disable-asm"
+build_one
+
+#Copy headers
+mkdir -p $BUILD_DIR/include
+cp x264_config.h $BUILD_DIR/include/
+cp x264.h $BUILD_DIR/include/
+
+echo "************** All Build Completed ! **************";
+
